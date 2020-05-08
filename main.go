@@ -17,6 +17,9 @@ func main() {
 		return
 	}
 
+	fmt.Printf("WIPCC_AliyunTTS_Go version: %s\n", VERSION)
+	fmt.Println("System running, Listening 0.0.0.0: 8080")
+
 	server_sock, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
 		Port: 8080,
