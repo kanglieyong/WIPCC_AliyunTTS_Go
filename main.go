@@ -26,8 +26,8 @@ var (
 )
 
 type ttsConf struct {
-	localip   string `yaml: "LocalIP"`
-	localport string `yaml: "LocalPort"`
+	LocalIP   string `yaml: "LocalIP"`
+	LocalPort int    `yaml: "LocalPort"`
 }
 
 func (conf *ttsConf) getTTSConf() *ttsConf {
@@ -54,35 +54,35 @@ func main() {
 	var conf ttsConf
 	conf.getTTSConf()
 
-	fmt.Printf("System running, Listening %s: %s\n", conf.localip, conf.localport)
+	fmt.Printf("System running, Listening %s: %d\n", conf.LocalIP, conf.LocalPort)
 
-	go initUDPServer()
+	go initUDPServer(&conf)
 	go doGetRequest()
 }
 
-func initUDPServer() {
-	serverSock, err := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4(0, 0, 0, 0),
-		Port: 8080,
-	})
-	if err != nil {
-		fmt.Println("Listen failed!", err)
-		return
+func initUDPServer(conf *ttsConf) {
+	addr := net.UDPAddr{
+		IP:   net.ParseIP(conf.LocalIP),
+		Port: conf.LocalPort,
 	}
-	defer serverSock.Close()
+	conn, err := net.ListenUDP("udp4", &addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
 
+	var buf [1024]byte
 	for {
-		data := make([]byte, 4096)
-		read, remoteAddr, err := serverSock.ReadFromUDP(data)
+		read, remoteAddr, err := conn.ReadFromUDP(buf[:])
 		if err != nil {
-			fmt.Println("read data failed!", err)
+			log.Print(err)
 			continue
 		}
 		fmt.Println(read, remoteAddr)
-		fmt.Printf("%s\n\n", data)
+		fmt.Printf("%s\n\n", buf[:])
 
 		senddata := []byte("hello client!")
-		_, err = serverSock.WriteToUDP(senddata, remoteAddr)
+		_, err = conn.WriteToUDP(senddata, remoteAddr)
 		if err != nil {
 			fmt.Println("send data failed!", err)
 			return
