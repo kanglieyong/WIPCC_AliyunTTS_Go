@@ -1,2 +1,11 @@
-LocalIP: "127.0.0.1"
-LocalPort: "9000"
+UDPServer:
+  LocalIP: "127.0.0.1"
+  LocalPort: "9000"
+
+TTSService:
+  appKey: "sdf34sdfsdf"
+  accessToken: "sdfdsfsf"
+  volumne: 50
+  format: "text"
+  voice: "xiaowang"
+  sampleRate: 5000
