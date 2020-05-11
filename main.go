@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -108,6 +110,11 @@ func doGetRequest() {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(body)
+	dst, err := os.Create(time.Now().Format("2006-01-02_15_04_05"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, resp.Body)
 }
