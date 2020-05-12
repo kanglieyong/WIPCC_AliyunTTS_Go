@@ -107,7 +107,6 @@ func doGetRequest() {
 	if err != nil {
 		log.Print("Oops, err")
 	}
-
 	defer resp.Body.Close()
 
 	dst, err := os.Create(time.Now().Format("2006-01-02_15_04_05"))
@@ -116,5 +115,9 @@ func doGetRequest() {
 	}
 	defer dst.Close()
 
-	_, err = io.Copy(dst, resp.Body)
+	wlen, err := io.Copy(dst, resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("write len=%d\n", wlen)
 }
