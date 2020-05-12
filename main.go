@@ -33,7 +33,7 @@ type ttsConf struct {
 }
 
 func (conf *ttsConf) getTTSConf() *ttsConf {
-	yamlFile, err := ioutil.ReadFile("Aliy_TTS.yaml")
+	yamlFile, err := ioutil.ReadFile("Aliy_TTS_Config.yaml")
 	if err != nil {
 		return nil
 	}
