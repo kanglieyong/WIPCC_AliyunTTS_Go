@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -47,10 +46,6 @@ func (conf *ttsConf) getTTSConf() *ttsConf {
 }
 
 func main() {
-	if len(os.Args) == 2 && (os.Args[1] == "version" || strings.ToUpper(os.Args[1]) == "-V" || os.Args[1] == "-version" || os.Args[1] == "--version") {
-		fmt.Printf("WIPCC_AliyunTTS_Go version: %s\n", version)
-		return
-	}
 	fmt.Printf("WIPCC_AliyunTTS_Go version: %s\n", version)
 
 	var conf ttsConf
