@@ -1,118 +1,155 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	version = "1.0.0.0"
+	version       = `1.0.0.0`
+	maxBufferSize = 1024
 )
+
+type TTSConf struct {
+	AppKey      string `yaml:"app_key"`
+	AccessToken string `yaml:"access_token"`
+	Format      string `yaml:"format"`
+	Voice       string `yaml:"voice"`
+	SampleRate  int    `yaml:"sample_rate"`
+}
 
 var (
-	appkey      string
-	accessToken string
-	text        string
-	format      string
-	voice       string
-	sampleRate  string
+	ttsConf TTSConf
 )
-
-type ttsConf struct {
-	LocalIP   string `yaml: "LocalIP"`
-	LocalPort int    `yaml: "LocalPort"`
-}
-
-func (conf *ttsConf) getTTSConf() *ttsConf {
-	yamlFile, err := ioutil.ReadFile("Aliy_TTS_Config.yaml")
-	if err != nil {
-		return nil
-	}
-
-	err = yaml.Unmarshal(yamlFile, conf)
-	if err != nil {
-		return nil
-	}
-
-	return conf
-}
 
 func main() {
 	fmt.Printf("WIPCC_AliyunTTS_Go version: %s\n", version)
 
-	var conf ttsConf
-	conf.getTTSConf()
+	yamlFile, err := ioutil.ReadFile("conf/TTSConfig.yaml")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	fmt.Printf("System running, Listening %s: %d\n", conf.LocalIP, conf.LocalPort)
+	err = yaml.Unmarshal(yamlFile, &ttsConf)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("%d\n", ttsConf.SampleRate)
+	fmt.Println(ttsConf.AccessToken)
 
-	go initUDPServer(&conf)
-	go doGetRequest()
+	return
+	ttsRequest := make(chan string)
+	go getTTSResult(ttsRequest)
 }
 
-func initUDPServer(conf *ttsConf) {
-	addr := net.UDPAddr{
-		IP:   net.ParseIP(conf.LocalIP),
-		Port: conf.LocalPort,
-	}
-	conn, err := net.ListenUDP("udp4", &addr)
+func server(ctx context.Context, address string) (err error) {
+	pc, err := net.ListenPacket("udp", address)
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
-	defer conn.Close()
+	defer pc.Close()
 
-	var buf [1024]byte
-	for {
-		read, remoteAddr, err := conn.ReadFromUDP(buf[:])
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		fmt.Println(read, remoteAddr)
-		fmt.Printf("%s\n\n", buf[:])
+	doneChan := make(chan error, 1)
+	buffer := make([]byte, maxBufferSize)
 
-		senddata := []byte("hello client!")
-		_, err = conn.WriteToUDP(senddata, remoteAddr)
-		if err != nil {
-			fmt.Println("send data failed!", err)
-			return
+	// Given that waiting for packets to arrive is blocking by nature and we want
+	// to be able of canceling such action if desired, we do that in a separate
+	// go routine.
+	go func() {
+		for {
+			n, addr, err := pc.ReadFrom(buffer)
+			if err != nil {
+				doneChan <- err
+				return
+			}
+
+			fmt.Printf("packet-received: bytes=%d from=%s\n", n, addr.String())
+			//reqStr := string(buffer[:n])
+			//ttsRequest <- reqStr
+
+			// Setting a deadline for the `write` operation allows us to not block
+			// for longer than a specific timeout.
+			//
+			// In the case of a write operation, that'd mean waiting for the send
+			// queue to be freed enough so that we are able to proceed.
+			// deadline := time.Now().Add(*timeout)
+			// err = pc.SetWriteDeadline(deadline)
+			// if err != nil {
+			// 	doneChan <- err
+			// 	return
+			// }
+
+			n, err = pc.WriteTo(buffer[:n], addr)
+			if err != nil {
+				doneChan <- err
+				return
+			}
+
+			fmt.Printf("packet-written: bytes=%d to=%s\n", n, addr.String())
 		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		fmt.Println("cancelled")
+		err = ctx.Err()
+	case err = <-doneChan:
 	}
+
+	return
 }
 
-func doGetRequest() {
-	req := "https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/tts"
-	req += "?appkey=" + appkey
-	req += "&token=" + accessToken
-	req += "&text=" + text
-	req += "&format=" + format
-	req += "&voice=" + voice
-	req += "&sampleRate=" + sampleRate
+func getTTSResult(ttsRequest chan string) {
+	textUrl := <-ttsRequest
+	escapeUrl := url.QueryEscape(textUrl)
 
-	fmt.Println(req)
+	reqBuilder := strings.Builder{}
+	reqBuilder.WriteString(`https://nls-gateway.cn-shanghai.aliyuncs.com/stream/v1/tts`)
+	reqBuilder.WriteString(`?appkey=`)
+	reqBuilder.WriteString(ttsConf.AppKey)
+	reqBuilder.WriteString(`&token=`)
+	reqBuilder.WriteString(ttsConf.AccessToken)
+	reqBuilder.WriteString(`&text=`)
+	reqBuilder.WriteString(escapeUrl)
+	reqBuilder.WriteString(`&format=`)
+	reqBuilder.WriteString(ttsConf.Format)
+	reqBuilder.WriteString(`&voice=`)
+	reqBuilder.WriteString(ttsConf.Voice)
+	reqBuilder.WriteString(`&sampleRate=`)
+	reqBuilder.WriteString(strconv.Itoa(ttsConf.SampleRate))
 
-	resp, err := http.Get(req)
-	if err != nil {
-		log.Print("Oops, err")
-	}
-	defer resp.Body.Close()
-
-	dst, err := os.Create(time.Now().Format("2006-01-02_15_04_05"))
+	dst, err := os.Create(time.Now().Format(`2006-01-02_15_04_05`) + `.wav`)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer dst.Close()
 
+	resp, err := http.Get(reqBuilder.String())
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
 	wlen, err := io.Copy(dst, resp.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("write len=%d\n", wlen)
+	fmt.Printf("write len=%ld\n", wlen)
 }
