@@ -1,2 +1,4 @@
 ﻿*.exe
 WIPCC_AliyunTTS_Go
+*.pcm
+*.wav
