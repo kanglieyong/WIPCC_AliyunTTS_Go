@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -14,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -36,7 +34,7 @@ var (
 )
 
 func main() {
-	fmt.Printf("WIPCC_AliyunTTS_Go version: %s\n", version)
+	fmt.Printf("AliyunTTS version: %s\n", version)
 
 	yamlFile, err := ioutil.ReadFile("conf/TTSConfig.yaml")
 	if err != nil {
@@ -52,10 +50,9 @@ func main() {
 	fmt.Printf("%d\n", ttsConf.SampleRate)
 	fmt.Println(ttsConf.AccessToken)
 
-	//return
 	ttsRequest := make(chan string)
-	go getTTSPost(ttsRequest)
-	//go getTTSResult(ttsRequest)
+
+	go getTTSResult(ttsRequest)
 
 	input := bufio.NewScanner(os.Stdin)
 	for input.Scan() {
@@ -66,7 +63,6 @@ func main() {
 		ttsRequest <- msg
 	}
 
-	time.Sleep(5)
 	fmt.Println("quit main goroutine!!!")
 }
 
@@ -145,15 +141,8 @@ func getTTSResult(ttsRequest chan string) {
 		reqBuilder.WriteString(ttsConf.Format)
 		reqBuilder.WriteString(`&voice=`)
 		reqBuilder.WriteString(ttsConf.Voice)
-		reqBuilder.WriteString(`&sampleRate=`)
+		reqBuilder.WriteString(`&sample_rate=`)
 		reqBuilder.WriteString(strconv.Itoa(ttsConf.SampleRate))
-
-		dst, err := os.Create(time.Now().Format(`2006-01-02_15_04_05`) + `.` + ttsConf.Format)
-		if err != nil {
-			fmt.Println("error: os.Create")
-			log.Fatal(err)
-		}
-		defer dst.Close()
 
 		resp, err := http.Get(reqBuilder.String())
 		if err != nil {
@@ -167,76 +156,44 @@ func getTTSResult(ttsRequest chan string) {
 			return
 		}
 
-		wlen, err := io.Copy(dst, resp.Body)
-		if err != nil {
-			fmt.Println("error: io.Copy")
-			log.Fatal(err)
-		}
-		fmt.Printf("write len=%d\n", wlen)
-
-		return
 		contents, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Println("error: ioutil.ReadAll")
 			log.Fatal(err)
 		}
-		dataLen := len(contents)
-		fmt.Printf("write len=%d\n", dataLen)
+		preDataLen := len(contents)
+		fmt.Printf("write len=%d\n", preDataLen)
 
-		//postData := make([]byte, dataLen/2, dataLen/2)
+		fileName := time.Now().Format(`2006-01-02_15_04_05`)
+		err = ioutil.WriteFile(fileName + `_pre.pcm`, contents, 0666)
+		if err != nil {
+			fmt.Println("error: ioutil.WriteFile")
+			log.Fatal(err)
+		}
 
-		convert16to8(contents, dataLen)
+		dataLen := preDataLen / 2
+		postData := make([]byte, dataLen, dataLen)
+		convert16to8(contents, postData, dataLen)
 
-
+		err = ioutil.WriteFile(fileName + `post.pcm`, postData, 0666)
+		if err != nil {
+			fmt.Println("error: ioutil.WriteFile")
+			log.Fatal(err)
+		}
 	}
 }
 
-func getTTSPost(ttsRequest chan string) {
-	host := `nls-gateway.cn-shanghai.aliyuncs.com`
-    url := `https://` + host + `/stream/v1/tts`
-	for {
-		textUrl := <-ttsRequest
-		fmt.Println(textUrl)
-
-		reqBuilder := strings.Builder{}
-		reqBuilder.WriteString(`https://`)
-		reqBuilder.WriteString(host)
-		reqBuilder.WriteString(`/stream/v1/tts`)
-        postHeader := reqBuilder.String()
-
-        client := http.Client{}
-
-
-
-        req, err := http.NewRequest("POST", postHeader, bytes.NewReader(contents))
-        req.Header.Add(`X-NLS-Token`, ttsConf.AccessToken)
-        req.Header.Add(`Content-type`, `application/octet-stream`)
-        req.Header.Add(`Content-Length`, strconv.Itoa(contentLen))
-        req.Header.Add(`Host`, `nls-gateway.cn-shanghai.aliyuncs.com`)
-
-
-		escapeUrl := url.QueryEscape(textUrl)
-
-
-
-
-
-
-	}
-}
-
-func convert16to8(preData []byte, dataLen int) {
-	postData := make([]byte, dataLen/2, dataLen/2)
+func convert16to8(preData, postData []byte, dataLen int) {
 	var counter int
 
-	for pos := 0; pos < dataLen; pos += 2 {
+	for pos := 0; pos < dataLen; pos += 1 {
 		counter++
 		data := make([]byte, 2, 2)
-		data = preData[pos : pos+2]
+		data = preData[2*pos : 2*pos+2]
 
-		frame := int16(data[0])
+		frame := int16(data[1])
 		frame = (frame << 8)
-		frame += int16(data[1])
+		frame += int16(data[0])
 
 		var a uint16 // A-law value we are forming
 		var b byte
@@ -278,12 +235,7 @@ func convert16to8(preData []byte, dataLen int) {
 		if counter % 1000 == 0 {
 			fmt.Println(b)
 		}
-		postData = append(postData, b)
-	}
-
-	err := ioutil.WriteFile("test.pcm", postData, 0666)
-	if err != nil {
-		fmt.Println("error: ioutil.WriteFile")
-		log.Fatal(err)
+		//postData = append(postData, b)
+		postData[pos] = b
 	}
 }
