@@ -165,7 +165,7 @@ func getTTSResult(ttsRequest chan string) {
 		fmt.Printf("write len=%d\n", preDataLen)
 
 		fileName := time.Now().Format(`2006-01-02_15_04_05`)
-		err = ioutil.WriteFile(fileName + `_pre.pcm`, contents, 0666)
+		err = ioutil.WriteFile(fileName + `.pcm`, contents, 0664)
 		if err != nil {
 			fmt.Println("error: ioutil.WriteFile")
 			log.Fatal(err)
@@ -175,7 +175,7 @@ func getTTSResult(ttsRequest chan string) {
 		postData := make([]byte, dataLen, dataLen)
 		convert16to8(contents, postData, dataLen)
 
-		err = ioutil.WriteFile(fileName + `post.pcm`, postData, 0666)
+		err = ioutil.WriteFile(fileName + `_post.pcm`, postData, 0664)
 		if err != nil {
 			fmt.Println("error: ioutil.WriteFile")
 			log.Fatal(err)
