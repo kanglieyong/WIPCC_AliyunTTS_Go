@@ -36,7 +36,7 @@ var (
 func main() {
 	fmt.Printf("AliyunTTS version: %s\n", version)
 
-	yamlFile, err := ioutil.ReadFile("conf/TTSConfig.yaml")
+	yamlFile, err := ioutil.ReadFile("config/TTSConfig.yaml")
 	if err != nil {
 		fmt.Println(err)
 		return
