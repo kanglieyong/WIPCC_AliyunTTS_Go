@@ -1,6 +1,6 @@
 
-app_key:      oI8amHfNKhLvO87K
-access_token: abd7ce8743d94db796a12280806e377f
-format:       wav
-voice:        Ruoxi
-sample_rate:  8000
+app_key: 'oI8amHfNKhLvO87K'
+access_token: 'xxxxxxxxxxxxxxxxxxxxx'
+format: 'pcm'
+voice: 'Ruoxi'
+sample_rate: 8000
