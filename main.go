@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"net"
@@ -13,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -36,6 +36,10 @@ var (
 func main() {
 	fmt.Printf("AliyunTTS version: %s\n", version)
 
+	if len(os.Args) > 1 {
+		readContent(os.Args[1], os.Args[2])
+		return
+	}
 	yamlFile, err := ioutil.ReadFile("config/TTSConfig.yaml")
 	if err != nil {
 		fmt.Println(err)
@@ -165,7 +169,7 @@ func getTTSResult(ttsRequest chan string) {
 		fmt.Printf("write len=%d\n", preDataLen)
 
 		fileName := time.Now().Format(`2006-01-02_15_04_05`)
-		err = ioutil.WriteFile(fileName + `.pcm`, contents, 0664)
+		err = ioutil.WriteFile(fileName+`.pcm`, contents, 0664)
 		if err != nil {
 			fmt.Println("error: ioutil.WriteFile")
 			log.Fatal(err)
@@ -175,7 +179,7 @@ func getTTSResult(ttsRequest chan string) {
 		postData := make([]byte, dataLen, dataLen)
 		convert16to8(contents, postData, dataLen)
 
-		err = ioutil.WriteFile(fileName + `_post.pcm`, postData, 0664)
+		err = ioutil.WriteFile(fileName+`_post.pcm`, postData, 0664)
 		if err != nil {
 			fmt.Println("error: ioutil.WriteFile")
 			log.Fatal(err)
@@ -183,59 +187,20 @@ func getTTSResult(ttsRequest chan string) {
 	}
 }
 
-func convert16to8(preData, postData []byte, dataLen int) {
-	var counter int
+func readContent(pcmName, postName string) {
+	pcmContents, err := ioutil.ReadFile(pcmName)
+	if err != nil {
+		fmt.Println("error: ioutil.ReadFile")
+		log.Fatal(err)
+	}
 
-	for pos := 0; pos < dataLen; pos += 1 {
-		counter++
-		data := make([]byte, 2, 2)
-		data = preData[2*pos : 2*pos+2]
+	dataLen := len(pcmContents)
+	postContents := make([]byte, 2*dataLen, 2*dataLen)
+	convert8to16(pcmContents, postContents, dataLen)
 
-		frame := int16(data[1])
-		frame = (frame << 8)
-		frame += int16(data[0])
-
-		var a uint16 // A-law value we are forming
-		var b byte
-
-		// -ve value
-		// Note, ones compliment is used here as this keeps encoding symetrical
-		// and equal spaced around zero cross-over, (it also matches the standard).
-		if frame < 0 {
-			frame = ^frame
-			a = 0x00 // sign = 0
-		} else {
-			// +ve value
-			a = 0x80 // sign = 1
-		}
-
-		// Calculate segment and interval numbers
-		frame = (frame >> 4)
-		if frame > 0x20 {
-			if frame >= 0x100 {
-				frame = (frame >> 4)
-				a += 0x40
-			}
-
-			if frame >= 0x40 {
-				frame = (frame >> 2)
-				a += 0x20
-			}
-
-			if frame >= 0x20 {
-				frame = (frame >> 1)
-				a += 0x10
-			}
-		}
-		// a&0x70 now holds segment value and 'p' the interval number
-
-		a += uint16(frame) // a now equal to encoded A-law value
-		a = a ^ 0x55
-		b = byte(a)
-		if counter % 1000 == 0 {
-			fmt.Println(b)
-		}
-		//postData = append(postData, b)
-		postData[pos] = b
+	err = ioutil.WriteFile(postName + `_8k16bit.pcm`, postContents, 0664)
+	if err != nil {
+		fmt.Println("error: ioutil.WriteFile")
+		log.Fatal(err)
 	}
 }
