@@ -7,13 +7,16 @@ import (
 
 func convert16to8(preData, postData []byte, postDataLen int) {
 	for pos := 0; pos < postDataLen; pos += 1 {
-		data := make([]byte, 2, 2)
-		data = preData[2*pos : 2*pos+2]
+		//data := make([]byte, 2, 2)
+		//data = preData[2*pos : 2*pos+2]
+
+		data := binary.LittleEndian.uint16(preData[2*pos])		
 
 		var frame int16
-		frame = int16(data[1])
-		frame = (frame << 8)
-		frame += int16(data[0])
+		frame = int16(data)
+		//frame = int16(data[1])
+		//frame = (frame << 8)
+		//frame += int16(data[0])
 
 		var a uint16 // A-law value we are forming
 		var b byte
@@ -83,8 +86,8 @@ func convert8to16(preData, postData []byte, preDataLen int) {
 			linear = -linear
 			postData[2*pos] = byte(linear % 0x100)
 			postData[2*pos+1] = byte(linear >> 8)
-			buf := bytes.NewBuffer([]byte{})
-			binary.Write(buf, binary.LittleEndian, linear)
+			//buf := bytes.NewBuffer([]byte{})
+			//binary.Write(buf, binary.LittleEndian, linear)
 		} else {
 			postData[2*pos] = byte(linear % 0x100)
 			postData[2*pos+1] = byte(linear >> 8)
