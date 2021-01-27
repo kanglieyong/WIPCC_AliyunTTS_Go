@@ -7,16 +7,8 @@ import (
 
 func convert16to8(preData, postData []byte, postDataLen int) {
 	for pos := 0; pos < postDataLen; pos += 1 {
-		//data := make([]byte, 2, 2)
-		//data = preData[2*pos : 2*pos+2]
-
-		data := binary.LittleEndian.Uint16(preData[2*pos:])		
-
-		var frame int16
-		frame = int16(data)
-		//frame = int16(data[1])
-		//frame = (frame << 8)
-		//frame += int16(data[0])
+		data := binary.LittleEndian.Uint16(preData[2*pos:])
+		frame := int16(data)
 
 		var a uint16 // A-law value we are forming
 		var b byte
@@ -62,35 +54,27 @@ func convert16to8(preData, postData []byte, postDataLen int) {
 
 func convert8to16(preData, postData []byte, preDataLen int) {
 	for pos := 0; pos < preDataLen; pos += 1 {
-		var alaw byte
-		alaw = preData[pos]
+		alaw := preData[pos]
 		alaw ^= 0x55 // A-law has alternate bits inverted for transmission
 
-		var sign uint16
-		sign = uint16(alaw & 0x80)
+		sign := uint16(alaw & 0x80)
 
-		var linear int16
-		linear = int16(alaw & 0x1f)
+		linear := int16(alaw & 0x1f)
 		linear = (linear << 4)
 		linear += 8 // Add a 'half' bit (0x08) to place PCM value in middle of range
 
 		alaw &= 0x7f
 		if alaw > 0x20 {
 			linear |= 0x100
-			var shift uint16
-			shift = uint16((alaw >> 4) - 1)
+			shift := uint16((alaw >> 4) - 1)
 			linear <<= shift
 		}
 
 		if sign == 0 {
 			linear = -linear
-			postData[2*pos] = byte(linear % 0x100)
-			postData[2*pos+1] = byte(linear >> 8)
-			//buf := bytes.NewBuffer([]byte{})
-			//binary.Write(buf, binary.LittleEndian, linear)
+			binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
 		} else {
-			postData[2*pos] = byte(linear % 0x100)
-			postData[2*pos+1] = byte(linear >> 8)
+			binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
 		}
 	}
 }
