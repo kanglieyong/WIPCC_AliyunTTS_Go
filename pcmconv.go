@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	_ "bytes"
 	"encoding/binary"
 )
 
@@ -10,7 +10,7 @@ func convert16to8(preData, postData []byte, postDataLen int) {
 		//data := make([]byte, 2, 2)
 		//data = preData[2*pos : 2*pos+2]
 
-		data := binary.LittleEndian.uint16(preData[2*pos])		
+		data := binary.LittleEndian.Uint16(preData[2*pos:])		
 
 		var frame int16
 		frame = int16(data)
