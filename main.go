@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"net"
@@ -14,11 +13,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
 	version       = `1.0.0.0`
 	maxBufferSize = 1024
+	A_LAW         = 1
+	S16_LE        = 2
 )
 
 type TTSConf struct {
@@ -37,7 +40,11 @@ func main() {
 	fmt.Printf("AliyunTTS version: %s\n", version)
 
 	if len(os.Args) > 1 {
-		readContent(os.Args[1], os.Args[2])
+		targetType, err := strconv.Atoi(os.Args[3])
+		if err != nil {
+			fmt.Println("error: strconv.Atoi")
+		}
+		readContent(os.Args[1], os.Args[2], targetType)
 		return
 	}
 	yamlFile, err := ioutil.ReadFile("config/TTSConfig.yaml")
@@ -187,7 +194,7 @@ func getTTSResult(ttsRequest chan string) {
 	}
 }
 
-func readContent(pcmName, postName string) {
+func readContent(pcmName, postName string, targetType int) {
 	pcmContents, err := ioutil.ReadFile(pcmName)
 	if err != nil {
 		fmt.Println("error: ioutil.ReadFile")
@@ -195,12 +202,27 @@ func readContent(pcmName, postName string) {
 	}
 
 	dataLen := len(pcmContents)
-	postContents := make([]byte, 2*dataLen, 2*dataLen)
-	convert8to16(pcmContents, postContents, dataLen)
+	var postDataLen int
 
-	err = ioutil.WriteFile(postName + `_8k16bit.pcm`, postContents, 0664)
-	if err != nil {
-		fmt.Println("error: ioutil.WriteFile")
-		log.Fatal(err)
+	if targetType == A_LAW {
+		postDataLen = dataLen / 2
+		postContents := make([]byte, postDataLen, postDataLen)
+		convert16to8(pcmContents, postContents, postDataLen)
+
+		err = ioutil.WriteFile(postName+`_8k8bit_alaw.pcm`, postContents, 0664)
+		if err != nil {
+			fmt.Println("error: ioutil.WriteFile")
+			log.Fatal(err)
+		}
+	} else if targetType == S16_LE {
+		postDataLen = 2 * dataLen
+		postContents := make([]byte, postDataLen, postDataLen)
+		convert8to16(pcmContents, postContents, dataLen)
+
+		err = ioutil.WriteFile(postName+`_8k16bit.pcm`, postContents, 0664)
+		if err != nil {
+			fmt.Println("error: ioutil.WriteFile")
+			log.Fatal(err)
+		}
 	}
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "bytes"
 	"encoding/binary"
 )
 
@@ -77,4 +76,10 @@ func convert8to16(preData, postData []byte, preDataLen int) {
 			binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
 		}
 	}
+}
+
+func mix(lbuf, rbuf []byte) {
+	llen := len(lbuf)
+	rlen := len(rbuf)
+
 }
