@@ -4,6 +4,11 @@ import (
 	"encoding/binary"
 )
 
+const (
+	Audio_DecodeShortSize = 240
+	Audio_DecodeDataSize  = 480
+)
+
 func convert16to8(preData, postData []byte, postDataLen int) {
 	for pos := 0; pos < postDataLen; pos += 1 {
 		data := binary.LittleEndian.Uint16(preData[2*pos:])
@@ -71,15 +76,28 @@ func convert8to16(preData, postData []byte, preDataLen int) {
 
 		if sign == 0 {
 			linear = -linear
-			binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
-		} else {
-			binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
 		}
+		binary.LittleEndian.PutUint16(postData[2*pos:], uint16(linear))
 	}
 }
 
-func mix(lbuf, rbuf []byte) {
-	llen := len(lbuf)
-	rlen := len(rbuf)
+/*
+func mix(pOutBuf, pInBuf1, pInBuf2 []int16) {
+	packLen := Audio_DecodeShortSize
+	len1, len2 := len(pInBuf1), len(InBuf2)
 
 }
+
+void mix(short* pOutBuf, short* pInBuf1, short* pInBuf2) {
+    int iTemp = Audio_DecodeShortSize;
+    if (pInBuf2) {
+        while (iTemp--) {
+            *(pOutBuf++) = ((*(pInBuf1++)) >> 1) + ((*(pInBuf2++)) >> 1);
+        }
+    } else {
+        while (iTemp--) {
+            *(pOutBuf++) = ((*(pInBuf1++)) >> 1);
+        }
+    }
+}
+*/
